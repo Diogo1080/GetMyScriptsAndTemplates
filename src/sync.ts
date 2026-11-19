@@ -47,9 +47,20 @@ function mapRemoteToLocal(remoteFile: string, mappings: FolderMapping[]): string
 	return null;
 }
 
+/**
+ * Never write into the config folder (.obsidian, which holds plugins incl. this one)
+ * or any hidden folder: syncing must not install or update plugins/code.
+ */
+export function isAllowedTarget(vault: Vault, localPath: string): boolean {
+	const segments = localPath.split("/");
+	if (segments.some((s) => s.startsWith(".") || s === "..")) return false;
+	return !(localPath === vault.configDir || localPath.startsWith(vault.configDir + "/"));
+}
+
 async function localSha(vault: Vault, path: string): Promise<string | null> {
-	if (!(await vault.adapter.exists(path))) return null;
-	return gitBlobSha(await vault.adapter.readBinary(path));
+	const f = vault.getAbstractFileByPath(path);
+	if (!(f instanceof TFile)) return null;
+	return gitBlobSha(await vault.readBinary(f));
 }
 
 export async function buildPlan(
@@ -65,7 +76,7 @@ export async function buildPlan(
 
 	for (const entry of tree) {
 		const localPath = mapRemoteToLocal(entry.path, mappings);
-		if (!localPath || seen.has(localPath)) continue;
+		if (!localPath || seen.has(localPath) || !isAllowedTarget(vault, localPath)) continue;
 		seen.add(localPath);
 
 		const current = await localSha(vault, localPath);
@@ -106,9 +117,10 @@ async function ensureFolder(vault: Vault, folderPath: string): Promise<void> {
 	if (!folderPath || folderPath === "/") return;
 	const existing = vault.getAbstractFileByPath(folderPath);
 	if (existing instanceof TFolder) return;
+	if (existing) throw new Error(`"${folderPath}" exists but is a file, not a folder`);
 	const parent = folderPath.includes("/") ? folderPath.slice(0, folderPath.lastIndexOf("/")) : "";
 	await ensureFolder(vault, parent);
-	if (!(await vault.adapter.exists(folderPath))) await vault.createFolder(folderPath);
+	await vault.createFolder(folderPath);
 }
 
 /**
@@ -129,7 +141,6 @@ export async function applyPlan(
 			if (c.kind === "delete") {
 				const f = vault.getAbstractFileByPath(c.localPath);
 				if (f instanceof TFile) await vault.trash(f, true);
-				else if (await vault.adapter.exists(c.localPath)) await vault.adapter.trashSystem(c.localPath);
 				delete next[c.localPath];
 				continue;
 			}
@@ -138,7 +149,7 @@ export async function applyPlan(
 			await ensureFolder(vault, parent);
 			const f = vault.getAbstractFileByPath(c.localPath);
 			if (f instanceof TFile) await vault.modifyBinary(f, data);
-			else if (await vault.adapter.exists(c.localPath)) await vault.adapter.writeBinary(c.localPath, data);
+			else if (f) throw new Error("a folder exists at this path");
 			else await vault.createBinary(c.localPath, data);
 			next[c.localPath] = c.remoteSha!;
 		} catch (e) {

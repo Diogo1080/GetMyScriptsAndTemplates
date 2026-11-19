@@ -85,7 +85,7 @@ export class SettingsTab extends PluginSettingTab {
 		new Setting(containerEl).setName("Folder mappings").setHeading();
 		containerEl.createEl("p", {
 			cls: "setting-item-description",
-			text: "Each repo folder is copied into the given vault folder. Leave the repo folder empty to use the repo root.",
+			text: "Each repo folder is copied into the given vault folder. Leave the repo folder empty to use the repo root. Hidden folders and the .obsidian config folder are never written to.",
 		});
 
 		s.mappings.forEach((m, i) => {

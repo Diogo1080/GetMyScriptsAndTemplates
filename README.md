@@ -12,7 +12,18 @@ An Obsidian plugin that keeps your templates and scripts in **one GitHub repo** 
   - **Skip this version** stops asking until the repo gets another commit.
 - **Your local edits are protected.** The plugin records the git blob hash of every file it writes. If you edited a synced file in a vault, the dialog flags it as "edited locally" and leaves it unchecked, so it isn't overwritten unless you choose to.
 - Removing a file from the repo moves the vault copy to the system trash. Files you added to the vault yourself are never touched.
-- The plugin uses the GitHub REST API through Obsidian's `requestUrl`, so it needs no git install and works on mobile.
+- The plugin only writes inside the vault folders you map. It never writes to hidden folders or to the `.obsidian` config folder, so it can't install or change plugins.
+- Downloaded files are plain files, such as templates and scripts for Templater or QuickAdd. This plugin never runs them.
+- No git install is needed, and it works on mobile.
+
+## Network use and accounts
+
+The plugin needs network access and a GitHub account, so here is exactly what it does:
+
+- **Remote service:** it calls only the **GitHub REST API** (`https://api.github.com`), for the single repository you configure. It does this to find the latest commit on your branch, list the repo's files, and download the files that changed.
+- **When:** at startup (optional), on the interval you set (optional), and when you run **Check for updates**.
+- **Account:** your templates must be in a GitHub repository. A GitHub **personal access token** is needed for private repos; public repos work without one. The token is sent only to `api.github.com`, and only as an `Authorization` header.
+- **Telemetry:** none, and no other data leaves your device.
 
 ## Setup
 
@@ -45,3 +56,7 @@ To test it, copy or symlink `main.js` and `manifest.json` into `<vault>/.obsidia
 - GitHub only, for now.
 - Without a token the API allows 60 requests per hour. A check uses 1–2 requests, and an update uses one more request per changed file.
 - Repos big enough for GitHub to truncate the tree listing aren't supported. That's around 100k files, far more than a templates repo needs.
+
+## License
+
+[MIT](LICENSE)
